@@ -15,7 +15,15 @@ const { trackAllProducts } = require("./utils/priceChecker");
 const app = express();
 const PORT = 5000;
 
-app.use(cors({ origin: "http://localhost:3000" }));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "https://tagsnag.vercel.app", 
+    ],
+  })
+);
+
 app.use(express.json());
 
 app.use("/auth", authRoutes);
