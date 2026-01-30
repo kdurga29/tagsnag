@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+const API = process.env.NEXT_PUBLIC_API_URL;
+
 export default function Dashboard() {
   return (
     <ProtectedRoute>
@@ -31,7 +33,7 @@ function DashboardContent() {
       const token = localStorage.getItem("token");
       if (!token) return handleAuthFail();
 
-      const res = await fetch("http://localhost:5000/products", {
+      const res = await fetch(`${API}/products`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -60,9 +62,10 @@ function DashboardContent() {
       alert("Login again. Token missing.");
       return handleAuthFail();
     }
+
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/track", {
+      const res = await fetch(`${API}/track`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -72,8 +75,8 @@ function DashboardContent() {
       });
 
       if (res.status === 401) return handleAuthFail();
-      const data = await
-       res.json().catch(() => ({}));
+
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         alert(data.message || "Track failed");
@@ -103,9 +106,7 @@ function DashboardContent() {
     <main className="dashboard animate-in">
       <div className="dash-top">
         <h2 className="dashboard-title">Tracked Products</h2>
-        <p className="dash-sub">
-          Add a Myntra link to start tracking price history.
-        </p>
+        <p className="dash-sub">Add a Myntra link to start tracking price history.</p>
       </div>
 
       <div className="add-bar">
@@ -123,11 +124,7 @@ function DashboardContent() {
       </div>
 
       <div className="rail-wrap">
-        <button
-          className="rail-btn left"
-          type="button"
-          onClick={() => scrollRail(-1)}
-        >
+        <button className="rail-btn left" type="button" onClick={() => scrollRail(-1)}>
           <ChevronLeft size={18} />
         </button>
 
@@ -148,21 +145,14 @@ function DashboardContent() {
 
                   <div className="tile-title">{p.title}</div>
 
-                  <button
-                    className="track-btn"
-                    onClick={() => router.push(`/product/${p._id}`)}
-                  >
+                  <button className="track-btn" onClick={() => router.push(`/product/${p._id}`)}>
                     Track
                   </button>
                 </div>
               ))}
         </div>
 
-        <button
-          className="rail-btn right"
-          type="button"
-          onClick={() => scrollRail(1)}
-        >
+        <button className="rail-btn right" type="button" onClick={() => scrollRail(1)}>
           <ChevronRight size={18} />
         </button>
       </div>

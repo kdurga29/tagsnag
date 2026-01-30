@@ -1,12 +1,20 @@
 "use client";
 
-import { useState, useContext } from "react";
+import { Suspense, useState, useContext } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthContext } from "../context/AuthContext";
 import { Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 
-export default function Login() {
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <Login />
+    </Suspense>
+  );
+}
+
+function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,11 +29,14 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/login`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        }
+      );
 
       const data = await res.json().catch(() => ({}));
 
@@ -34,7 +45,7 @@ export default function Login() {
         login(data.token);
 
         const next = searchParams.get("next");
-        router.push(next ? next : "/dashboard");
+        router.push(next || "/dashboard");
       } else {
         alert(data.message || "Login failed");
       }
@@ -67,7 +78,6 @@ export default function Login() {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
             />
           </div>
 
@@ -80,14 +90,7 @@ export default function Login() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
             />
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
-            <Link className="authLink" href="/forgot-password">
-              Forgot password?
-            </Link>
           </div>
 
           <button className="authBtnPrimary" type="submit" disabled={loading}>
