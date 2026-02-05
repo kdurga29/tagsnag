@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AuthContext } from "../context/AuthContext";
 import { Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 
+const API = process.env.NEXT_PUBLIC_API_URL;
+
 export default function LoginPage() {
   return (
     <Suspense fallback={null}>
@@ -18,39 +20,40 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const { login } = useContext(AuthContext);
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const handleLogin = async (e) => {
-    e?.preventDefault();
-    if (!email || !password) return alert("Enter email and password");
+    e.preventDefault();
+    setError("");
+
+    if (!email || !password) {
+      setError("Enter email and password");
+      return;
+    }
 
     setLoading(true);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/login`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        }
-      );
+      const res = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.token) {
         localStorage.setItem("token", data.token);
         login(data.token);
-
-        const next = searchParams.get("next");
-        router.push(next || "/dashboard");
+        router.push(searchParams.get("next") || "/dashboard");
       } else {
-        alert(data.message || "Login failed");
+        setError(data.message || "Invalid credentials");
       }
-    } catch (err) {
-      alert("Server error");
+    } catch {
+      setError("Server error. Try again later.");
     } finally {
       setLoading(false);
     }
@@ -91,6 +94,18 @@ function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+          </div>
+
+          {error && (
+            <p className="authError">
+              {error}
+            </p>
+          )}
+
+          <div className="authExtras">
+            <Link className="authLink" href="/forgot-password">
+              Forgot password?
+            </Link>
           </div>
 
           <button className="authBtnPrimary" type="submit" disabled={loading}>

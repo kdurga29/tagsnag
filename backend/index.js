@@ -13,32 +13,25 @@ const { trackAllProducts } = require("./utils/priceChecker");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://tagsnag.vercel.app",
-];
-
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      if (origin.endsWith(".vercel.app")) return callback(null, true);
-      return callback(new Error("Not allowed by CORS: " + origin), false);
-    },
+    origin: [
+      "http://localhost:3000",
+      "https://tagsnag.vercel.app",
+    ],
+    credentials: true,
   })
 );
 
 app.use(express.json());
-
 app.use("/auth", authRoutes);
 
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
-  .catch((e) => console.error("❌ MongoDB error:", e.message));
+  .catch((err) => console.error("❌ MongoDB error:", err.message));
 
-app.get("/health", (_, res) => res.json({ ok: true }));
+app.get("/", (_, res) => res.send("Backend OK"));
 
 app.post("/track", auth, async (req, res) => {
   try {
@@ -65,10 +58,10 @@ app.post("/track", auth, async (req, res) => {
       });
     }
 
-    res.json(product);
+    return res.json(product);
   } catch (err) {
     console.error("❌ /track error:", err.message);
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 
@@ -77,23 +70,23 @@ app.get("/products", auth, async (req, res) => {
     const products = await Product.find({ user: req.userId }).sort({ createdAt: -1 });
     res.json(products);
   } catch (err) {
-    console.error("❌ /products error:", err.message);
     res.status(500).json({ message: "Fetch failed" });
   }
 });
 
 app.delete("/products/:id", auth, async (req, res) => {
   try {
-    await Product.findOneAndDelete({ _id: req.params.id, user: req.userId });
-    res.json({ message: "Deleted" });
+    const deleted = await Product.findOneAndDelete({ _id: req.params.id, user: req.userId });
+    if (!deleted) return res.status(404).json({ message: "Product not found" });
+    res.json({ message: "Deleted & tracking stopped" });
   } catch (err) {
-    console.error("❌ delete error:", err.message);
     res.status(500).json({ message: "Delete failed" });
   }
 });
 
-setInterval(trackAllProducts, 5 * 60 * 1000);
+if (process.env.ENABLE_PRICE_CHECKER === "true") {
+  setInterval(trackAllProducts, 5 * 60 * 1000);
+}
 
-app.listen(PORT, () => {
-  console.log(`🚀 Backend running on port ${PORT}`);
-});
+
+app.listen(PORT, () => console.log(`🚀 Backend running on http://localhost:${PORT}`));

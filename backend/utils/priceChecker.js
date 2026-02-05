@@ -1,51 +1,69 @@
 const Product = require("../models/Product");
-const { getMyntraPrice } = require("./myntraScraper");
-const { sendPriceAlert } = require("./sendEmail");
+const User = require("../models/User");
+const { getMyntraProduct } = require("./myntraScraper");
+const { sendPriceDropEmail } = require("./mailer");
 
 let isRunning = false;
 
-async function checkPrices() {
-  if (isRunning) return; // prevent parallel runs
+async function trackAllProducts() {
+  if (isRunning) return;
   isRunning = true;
 
   try {
-    console.log("🔄 Checking prices...");
+    console.log("⏳ Background price check running...");
 
-    const products = await Product.find({
-      targetPrice: { $ne: null },
-      alertTriggered: false,
-    });
+    const products = await Product.find().lean();
 
-    for (const product of products) {
+    for (const p of products) {
       try {
-        const newPrice = await getMyntraPrice(product.link);
-        if (newPrice === null) continue;
+        // Only Myntra supported
+        if (!p.link || !p.link.includes("myntra.com")) continue;
 
-        product.price = newPrice;
+        const scraped = await getMyntraProduct(p.link);
+        if (!scraped?.price) continue;
 
-        if (newPrice <= product.targetPrice) {
-          product.alertTriggered = true;
+        const oldPrice = p.price;
+        const newPrice = scraped.price;
 
-          console.log(
-            `🚨 ALERT HIT → ₹${newPrice} | ${product.link}`
-          );
+        // If price didn't change, skip
+        if (oldPrice === newPrice) continue;
 
-          await sendPriceAlert(product.link, newPrice);
+        // Update product
+        await Product.updateOne(
+          { _id: p._id },
+          {
+            $set: {
+              title: scraped.title || p.title,
+              image: scraped.image || p.image,
+              price: newPrice,
+            },
+            $push: {
+              priceHistory: { price: newPrice, date: new Date() },
+            },
+          }
+        );
+
+        // Send email only if drop
+        if (oldPrice && newPrice < oldPrice) {
+          const user = await User.findById(p.user).lean();
+          if (user?.email) {
+            await sendPriceDropEmail(
+              user.email,
+              { title: scraped.title || p.title, link: p.link },
+              oldPrice,
+              newPrice
+            );
+          }
         }
-
-        await product.save();
       } catch (err) {
-        console.error("❌ Product check failed:", err.message);
+        console.error("❌ Background product check failed:", err.message);
       }
     }
   } catch (err) {
-    console.error("❌ Price checker error:", err.message);
+    console.error("❌ trackAllProducts fatal:", err.message);
   } finally {
     isRunning = false;
   }
 }
 
-/* 🔁 Run automatically every 15 seconds */
-setInterval(checkPrices, 15 * 1000);
-
-module.exports = { checkPrices };
+module.exports = { trackAllProducts };

@@ -5,18 +5,26 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { User, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 
+const API = process.env.NEXT_PUBLIC_API_URL;
+
 export default function Signup() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const router = useRouter();
 
   const handleSubmit = async (e) => {
-    e?.preventDefault();
-    if (!form.name || !form.email || !form.password) return alert("Fill all fields");
+    e.preventDefault();
+    setError("");
+
+    if (!form.name || !form.email || !form.password) {
+      setError("All fields are required");
+      return;
+    }
 
     setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/signup`, {
+      const res = await fetch(`${API}/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -24,10 +32,13 @@ export default function Signup() {
 
       const data = await res.json().catch(() => ({}));
 
-      if (res.ok) router.push("/login");
-      else alert(data.message || "Signup failed");
-    } catch (err) {
-      alert("Server error");
+      if (res.ok) {
+        router.push("/login");
+      } else {
+        setError(data.message || "Signup failed");
+      }
+    } catch {
+      setError("Server error. Try again later.");
     } finally {
       setLoading(false);
     }
@@ -52,8 +63,9 @@ export default function Signup() {
               className="authInput"
               placeholder="Your name"
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              autoComplete="name"
+              onChange={(e) =>
+                setForm({ ...form, name: e.target.value })
+              }
             />
           </div>
 
@@ -65,8 +77,9 @@ export default function Signup() {
               type="email"
               placeholder="you@example.com"
               value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              autoComplete="email"
+              onChange={(e) =>
+                setForm({ ...form, email: e.target.value })
+              }
             />
           </div>
 
@@ -78,10 +91,17 @@ export default function Signup() {
               type="password"
               placeholder="Create a password"
               value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              autoComplete="new-password"
+              onChange={(e) =>
+                setForm({ ...form, password: e.target.value })
+              }
             />
           </div>
+
+          {error && (
+            <p className="authError">
+              {error}
+            </p>
+          )}
 
           <button className="authBtnPrimary" type="submit" disabled={loading}>
             {loading ? (

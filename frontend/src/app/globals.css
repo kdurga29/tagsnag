@@ -670,3 +670,15 @@ main.dashboard {
     border-radius: 16px;
   }
 }
+.authError {
+  margin-top: 12px;
+  color: #ff4d4f;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.authExtras {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}

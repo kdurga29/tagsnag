@@ -12,7 +12,7 @@ export default function Navbar({ theme, setTheme }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const isAuthPage = pathname === "/login" || pathname === "/signup";
-  const isDashboard = pathname.startsWith("/dashboard");
+  const isHome = pathname === "/";
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -28,14 +28,17 @@ export default function Navbar({ theme, setTheme }) {
   return (
     <header className="ts-nav">
       <div className="ts-nav__inner">
-        
+        {/* Brand */}
         <Link href="/" className="ts-brand">
           <span className="ts-brand__dot" />
           <span className="ts-brand__text">TagSnag</span>
         </Link>
 
+        {/* Actions */}
         <div className="ts-nav__actions">
-          {!isLoggedIn && !isAuthPage && pathname === "/" && (
+          {/* ✅ HOME PAGE: show ONLY Login/Signup if logged out.
+              ✅ If logged in, show NOTHING (no dashboard/logout). */}
+          {isHome && !isLoggedIn && (
             <div className="ts-nav__group">
               <Link href="/login" className="ts-pill ts-pill--ghost">
                 <LogIn size={16} />
@@ -48,9 +51,10 @@ export default function Navbar({ theme, setTheme }) {
             </div>
           )}
 
-          {isLoggedIn && (
+          {/* ✅ Other pages: Logged in users can see dashboard/logout */}
+          {!isHome && isLoggedIn && (
             <div className="ts-nav__group">
-              {!isDashboard && (
+              {pathname !== "/dashboard" && (
                 <Link href="/dashboard" className="ts-pill ts-pill--ghost">
                   <LayoutDashboard size={16} />
                   <span>Dashboard</span>
@@ -68,6 +72,10 @@ export default function Navbar({ theme, setTheme }) {
             </div>
           )}
 
+          {/* ✅ Hide login/signup buttons on auth pages */}
+          {!isHome && !isLoggedIn && !isAuthPage && null}
+
+          {/* Theme toggle always visible */}
           <button
             type="button"
             className="ts-iconBtn"
