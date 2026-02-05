@@ -682,3 +682,10 @@ main.dashboard {
   justify-content: flex-end;
   margin-bottom: 12px;
 }
+
+.authSuccess {
+  margin-top: 12px;
+  color: #22c55e;
+  font-size: 14px;
+  font-weight: 600;
+}
