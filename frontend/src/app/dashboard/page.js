@@ -30,6 +30,12 @@ function DashboardContent() {
 
   const fetchProducts = async () => {
     try {
+      if (!API) {
+        console.error("❌ NEXT_PUBLIC_API_URL is missing on Vercel.");
+        alert("Missing NEXT_PUBLIC_API_URL in Vercel Environment Variables");
+        return;
+      }
+
       const token = localStorage.getItem("token");
       if (!token) return handleAuthFail();
 
@@ -43,6 +49,7 @@ function DashboardContent() {
       setProducts(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Fetch products error:", err);
+      alert("Failed to load products (API/CORS/Backend down). Check console.");
     }
   };
 
@@ -52,16 +59,16 @@ function DashboardContent() {
 
   const handleAdd = async () => {
     const link = productLink.trim();
-    if (!link) {
-      alert("Paste a Myntra link first");
+    if (!link) return alert("Paste a Myntra link first");
+
+    if (!API) {
+      console.error("❌ NEXT_PUBLIC_API_URL is missing on Vercel.");
+      alert("Missing NEXT_PUBLIC_API_URL in Vercel Environment Variables");
       return;
     }
 
     const token = localStorage.getItem("token");
-    if (!token) {
-      alert("Login again. Token missing.");
-      return handleAuthFail();
-    }
+    if (!token) return handleAuthFail();
 
     setLoading(true);
     try {
@@ -77,7 +84,6 @@ function DashboardContent() {
       if (res.status === 401) return handleAuthFail();
 
       const data = await res.json().catch(() => ({}));
-
       if (!res.ok) {
         alert(data.message || "Track failed");
         return;
@@ -142,9 +148,7 @@ function DashboardContent() {
                   <div className="tile-image">
                     <img src={p.image} alt={p.title} />
                   </div>
-
                   <div className="tile-title">{p.title}</div>
-
                   <button className="track-btn" onClick={() => router.push(`/product/${p._id}`)}>
                     Track
                   </button>

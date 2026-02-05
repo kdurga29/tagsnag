@@ -1,33 +1,51 @@
 const Product = require("../models/Product");
-const { getMyntraProduct } = require("./myntraScraper");
-const { sendPriceDropEmail } = require("./mailer");
-const User = require("../models/User");
+const { getMyntraPrice } = require("./myntraScraper");
+const { sendPriceAlert } = require("./sendEmail");
 
-async function trackAllProducts() {
-  const products = await Product.find().populate("user");
+let isRunning = false;
 
-  for (const product of products) {
-    const data = await getMyntraProduct(product.link);
-    if (!data?.price) continue;
+async function checkPrices() {
+  if (isRunning) return; // prevent parallel runs
+  isRunning = true;
 
-    const oldPrice = product.price;
-    const newPrice = data.price;
+  try {
+    console.log("🔄 Checking prices...");
 
-    if (newPrice !== oldPrice) {
-      product.price = newPrice;
-      product.priceHistory.push({ price: newPrice, date: new Date() });
-      await product.save();
+    const products = await Product.find({
+      targetPrice: { $ne: null },
+      alertTriggered: false,
+    });
 
-      if (newPrice < oldPrice && product.user?.email) {
-        await sendPriceDropEmail(
-          product.user.email,
-          product,
-          oldPrice,
-          newPrice
-        );
+    for (const product of products) {
+      try {
+        const newPrice = await getMyntraPrice(product.link);
+        if (newPrice === null) continue;
+
+        product.price = newPrice;
+
+        if (newPrice <= product.targetPrice) {
+          product.alertTriggered = true;
+
+          console.log(
+            `🚨 ALERT HIT → ₹${newPrice} | ${product.link}`
+          );
+
+          await sendPriceAlert(product.link, newPrice);
+        }
+
+        await product.save();
+      } catch (err) {
+        console.error("❌ Product check failed:", err.message);
       }
     }
+  } catch (err) {
+    console.error("❌ Price checker error:", err.message);
+  } finally {
+    isRunning = false;
   }
 }
 
-module.exports = { trackAllProducts };
+/* 🔁 Run automatically every 15 seconds */
+setInterval(checkPrices, 15 * 1000);
+
+module.exports = { checkPrices };

@@ -6,21 +6,26 @@ require("dotenv").config();
 const auth = require("./middleware/auth");
 const authRoutes = require("./routes/auth");
 const Product = require("./models/Product");
-const User = require("./models/User");
 
 const { getMyntraProduct } = require("./utils/myntraScraper");
-const { sendPriceDropEmail } = require("./utils/mailer");
 const { trackAllProducts } = require("./utils/priceChecker");
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
+
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://tagsnag.vercel.app",
+];
 
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "https://tagsnag.vercel.app", 
-    ],
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      if (origin.endsWith(".vercel.app")) return callback(null, true);
+      return callback(new Error("Not allowed by CORS: " + origin), false);
+    },
   })
 );
 
@@ -28,48 +33,67 @@ app.use(express.json());
 
 app.use("/auth", authRoutes);
 
-mongoose.connect(process.env.MONGO_URI)
+mongoose
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
-  .catch(console.error);
+  .catch((e) => console.error("❌ MongoDB error:", e.message));
+
+app.get("/health", (_, res) => res.json({ ok: true }));
 
 app.post("/track", auth, async (req, res) => {
-  const { link } = req.body;
+  try {
+    const { link } = req.body;
 
-  if (!link.includes("myntra.com"))
-    return res.status(400).json({ message: "Only Myntra supported" });
+    if (!link || !link.includes("myntra.com")) {
+      return res.status(400).json({ message: "Only Myntra supported" });
+    }
 
-  const data = await getMyntraProduct(link);
-  if (!data) return res.status(500).json({ message: "Scrape failed" });
+    const data = await getMyntraProduct(link);
+    if (!data) return res.status(500).json({ message: "Scrape failed" });
 
-  let product = await Product.findOne({ link, user: req.userId });
+    let product = await Product.findOne({ link, user: req.userId });
 
-  if (!product) {
-    product = await Product.create({
-      user: req.userId,
-      link,
-      title: data.title,
-      image: data.image,
-      initialPrice: data.price,
-      price: data.price,
-      priceHistory: [{ price: data.price, date: new Date() }],
-    });
+    if (!product) {
+      product = await Product.create({
+        user: req.userId,
+        link,
+        title: data.title,
+        image: data.image,
+        initialPrice: data.price,
+        price: data.price,
+        priceHistory: [{ price: data.price, date: new Date() }],
+      });
+    }
+
+    res.json(product);
+  } catch (err) {
+    console.error("❌ /track error:", err.message);
+    res.status(500).json({ message: "Internal server error" });
   }
-
-  res.json(product);
 });
 
 app.get("/products", auth, async (req, res) => {
-  const products = await Product.find({ user: req.userId });
-  res.json(products);
+  try {
+    const products = await Product.find({ user: req.userId }).sort({ createdAt: -1 });
+    res.json(products);
+  } catch (err) {
+    console.error("❌ /products error:", err.message);
+    res.status(500).json({ message: "Fetch failed" });
+  }
 });
 
 app.delete("/products/:id", auth, async (req, res) => {
-  await Product.findOneAndDelete({ _id: req.params.id, user: req.userId });
-  res.json({ message: "Deleted" });
+  try {
+    await Product.findOneAndDelete({ _id: req.params.id, user: req.userId });
+    res.json({ message: "Deleted" });
+  } catch (err) {
+    console.error("❌ delete error:", err.message);
+    res.status(500).json({ message: "Delete failed" });
+  }
 });
 
 setInterval(trackAllProducts, 5 * 60 * 1000);
 
-app.listen(PORT, () =>
-  console.log(`🚀 Backend running on http://localhost:${PORT}`)
-);
+app.listen(PORT, () => {
+  console.log(`🚀 Backend running on port ${PORT}`);
+});
